@@ -28,6 +28,13 @@ namespace Frm_waypoint
         string SQLtext        = "";
         string mapID          = "";
 
+        enum SniffType
+        {
+            Trinity,
+            UDB
+        }
+        SniffType sniffType;
+
         struct Packet
         {
             public string time;
@@ -266,24 +273,44 @@ namespace Frm_waypoint
             System.IO.StreamReader file = new System.IO.StreamReader(fileName);
             var line = file.ReadLine();
             file.Close();
-
+            
             if (line == "# TrinityCore - WowPacketParser")
             {
+                sniffType = SniffType.Trinity;
                 waypoints.Clear();
                 waypoints = GetDataSourceFromSniffFile(fileName);
 
                 if (Properties.Settings.Default.ObjectUpdate == true)
                 {
-                    ActiveForm.Text = "Waypoint Creator - Movement loaded from SMSG_UPDATE_OBJECT";
+                    if (ActiveForm != null)
+                        ActiveForm.Text = "Waypoint Creator - Movement loaded from SMSG_UPDATE_OBJECT";
                 }
                 else
                 {
-                    ActiveForm.Text = "Waypoint Creator - Movement loaded from SMSG_ON_MONSTER_MOVE";
+                    if (ActiveForm != null)
+                        ActiveForm.Text = "Waypoint Creator - Movement loaded from SMSG_ON_MONSTER_MOVE";
+                }
+            }
+            else if (line == "# UDBParser")
+            {
+                sniffType = SniffType.UDB;
+                waypoints.Clear();
+                waypoints = GetDataSourceFromSniffFile(fileName);
+
+                if (Properties.Settings.Default.ObjectUpdate == true)
+                {
+                    if (ActiveForm != null)
+                        ActiveForm.Text = "Waypoint Creator - Movement loaded from SMSG_UPDATE_OBJECT";
+                }
+                else
+                {
+                    if (ActiveForm != null)
+                        ActiveForm.Text = "Waypoint Creator - Movement loaded from SMSG_ON_MONSTER_MOVE";
                 }
             }
             else
             {
-                MessageBox.Show(saveFileDialog.FileName + " is is not a valid TrinityCore parsed sniff file.", "File Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                MessageBox.Show(saveFileDialog.FileName + " is not a valid TrinityCore or UDB parsed sniff file.", "File Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
             }
         }
 
@@ -329,10 +356,13 @@ namespace Frm_waypoint
                 {
                     i++;
                     string[] packetline = lines[i].Split(new char[] { ' ' });
-                    mapID = packetline[1];
+                    if (sniffType == SniffType.Trinity)
+                        mapID = packetline[1];
+                    else if (sniffType == SniffType.UDB)
+                        mapID = packetline[2];
                 }
 
-                if (Properties.Settings.Default.ObjectUpdate != true && lines[i].Contains("SMSG_ON_MONSTER_MOVE"))
+                if (Properties.Settings.Default.ObjectUpdate != true && (lines[i].Contains("SMSG_ON_MONSTER_MOVE") || lines[i].Contains("SMSG_MONSTER_MOVE")))
                 {
                     string[] values = lines[i].Split(new char[] { ' ' });
                     string[] time = values[9].Split(new char[] { '.' });
@@ -342,43 +372,79 @@ namespace Frm_waypoint
                     {
                         i++;
 
-                        if (lines[i].Contains("MoverGUID: Full:"))
+                        if (lines[i].Contains("GUID: Full:"))
                         {
-                            if (lines[i].Contains("Creature/0") || lines[i].Contains("Vehicle/0"))
+                            if ((lines[i].Contains("Creature/0") || lines[i].Contains("Vehicle/0")) && sniffType == SniffType.Trinity)
                             {
                                 string[] packetline = lines[i].Split(new char[] { ' ' });
                                 sniff.entry = packetline[8]; // Entry count
                                 sniff.guid = packetline[2]; // Guid count
                             }
+                            else if (lines[i].Contains("Unit") && sniffType == SniffType.UDB)
+                            {
+                                string[] packetline = lines[i].Split(new char[] { ' ' });
+                                sniff.entry = packetline[7];
+                                sniff.guid = packetline[2];
+                            }
                         }
 
-                        if (lines[i].Contains("Position: X:")) // Save Postion for if movement is a turn.
+                        if (sniffType == SniffType.Trinity)
                         {
-                            string[] packetline = lines[i].Split(new char[] { ' ' });
-                            sniff.x = packetline[2];
-                            sniff.y = packetline[4];
-                            sniff.z = packetline[6];
-                            sniff.o = "0";
-                        }
+                            if (lines[i].Contains("Position: X:")) // Save Postion for if movement is a turn.
+                            {
+                                string[] packetline = lines[i].Split(new char[] { ' ' });
+                                sniff.x = packetline[2];
+                                sniff.y = packetline[4];
+                                sniff.z = packetline[6];
+                                sniff.o = "0";
+                            }
 
-                        if (lines[i].Contains("[0] Points: X:")) // Replace Position with move to location.
-                        {
-                            string[] packetline = lines[i].Split(new char[] { ' ' });
-                            sniff.x = packetline[5];
-                            sniff.y = packetline[7];
-                            sniff.z = packetline[9];
-                            sniff.o = "0";
-                        }
+                            if (lines[i].Contains("[0] Points: X:")) // Replace Position with move to location.
+                            {
+                                string[] packetline = lines[i].Split(new char[] { ' ' });
+                                sniff.x = packetline[5];
+                                sniff.y = packetline[7];
+                                sniff.z = packetline[9];
+                                sniff.o = "0";
+                            }
 
-                        if (lines[i].Contains("Face: 2")) // moving to player will be ignored
-                        {
-                            sniff.entry = ""; // Clear entry so movement will be ignored.
-                        }
+                            if (lines[i].Contains("Face: 2")) // moving to player will be ignored
+                            {
+                                sniff.entry = ""; // Clear entry so movement will be ignored.
+                            }
 
-                        if (lines[i].Contains("FaceDirection:"))
+                            if (lines[i].Contains("FaceDirection:"))
+                            {
+                                string[] packetline = lines[i].Split(new char[] { ' ' });
+                                sniff.o = packetline[3];
+                            }
+                        }
+                        else if (sniffType == SniffType.UDB)
                         {
-                            string[] packetline = lines[i].Split(new char[] { ' ' });
-                            sniff.o = packetline[3];
+                            if (lines[i].Contains("Waypoint Endpoint: X:"))
+                            {
+                                string[] packetline = lines[i].Split(new char[] { ' ' });
+                                sniff.x = packetline[3];
+                                sniff.y = packetline[5];
+                                sniff.z = packetline[7];
+                                if (sniff.o == "")
+                                    sniff.o = "0";
+                            }
+
+                            if (lines[i].Contains("[0] Waypoint: X:") && lines[i + 1] == "")
+                            {
+                                string[] packetline = lines[i].Split(new char[] { ' ' });
+                                sniff.x = packetline[3];
+                                sniff.y = packetline[5];
+                                sniff.z = packetline[7];
+                                sniff.o = "0";
+                            }
+
+                            if (lines[i].Contains("Facing Angle:"))
+                            {
+                                string[] packetline = lines[i].Split(new char[] { ' ' });
+                                sniff.o = packetline[2];
+                            }
                         }
 
                     } while (lines[i] != "");
@@ -419,6 +485,12 @@ namespace Frm_waypoint
                                 sniff.guid = packetline[3];
                             }
                         }
+                        else if (lines[i].Contains("GUID: Full:") && lines[i].Contains("Unit"))
+                        {
+                            string[] packetline = lines[i].Split(new char[] { ' ' });
+                            sniff.entry = packetline[8];
+                            sniff.guid = packetline[3];
+                        }
 
                         if (lines[i].Contains("Points: X:"))
                         {
@@ -427,6 +499,26 @@ namespace Frm_waypoint
                             sniff.x = packetline[4];
                             sniff.y = packetline[6];
                             sniff.z = packetline[8];
+                            sniff.o = "0";
+
+                            DataRow dr = dt.NewRow();
+                            dr[0] = sniff.entry;
+                            dr[1] = sniff.guid;
+                            dr[2] = sniff.x;
+                            dr[3] = sniff.y;
+                            dr[4] = sniff.z;
+                            dr[5] = sniff.o;
+                            dr[6] = sniff.time;
+                            dr[7] = mapID;
+                            dt.Rows.Add(dr);
+                        }
+                        else if (lines[i].Contains("Spline Waypoint: X:"))
+                        {
+
+                            string[] packetline = lines[i].Split(new char[] { ' ' });
+                            sniff.x = packetline[5];
+                            sniff.y = packetline[7];
+                            sniff.z = packetline[9];
                             sniff.o = "0";
 
                             DataRow dr = dt.NewRow();
@@ -618,7 +710,7 @@ namespace Frm_waypoint
             SQLtext = "-- Pathing for " + creature_name + " Entry: " + creature_entry + " 'UDB FORMAT' \r\n" + "SET @GUID := XXXXXX;" + "\r\n";
             SQLtext = SQLtext + "UPDATE `creature` SET `spawndist`=0,`MovementType`=2,`position_x`=" + Convert.ToString(gridWaypoint[1, 0].Value) + ",`position_y`=" + Convert.ToString(gridWaypoint[2, 0].Value) + ",`position_z`=" + Convert.ToString(gridWaypoint[3, 0].Value) + " WHERE `guid`=@GUID;" + "\r\n";
             SQLtext = SQLtext + "DELETE FROM `creature_movement` WHERE `id`=@GUID;" + "\r\n";
-            SQLtext = SQLtext + "INSERT INTO `creature_movement` (`id`,`point`,`position_x`,`position_y`,`position_z`,`waittime`,`script_id`,`textid1`,`textid2`,`textid3`,`textid4`,`textid5`,`emote`,`spell`,`orientation`,`model1`,`model2`) VALUES" + "\r\n";
+            SQLtext = SQLtext + "INSERT INTO `creature_movement` (`id`,`point`,`position_x`,`position_y`,`position_z`,`waittime`,`script_id`,`orientation`) VALUES" + "\r\n";
 
             for (var l = 0; l < gridWaypoint.RowCount; l++)
             {
@@ -639,11 +731,11 @@ namespace Frm_waypoint
 
                 if (l < (gridWaypoint.RowCount - 1))
                 {
-                    SQLtext = SQLtext + waittime + ",0,0,0,0,0,0,0,0," + facing + ",0,0)," + "\r\n";
+                    SQLtext = SQLtext + waittime + ",0," + facing + ")," + "\r\n";
                 }
                 else
                 {
-                    SQLtext = SQLtext + waittime + ",0,0,0,0,0,0,0,0," + facing + ",0,0);" + "\r\n";
+                    SQLtext = SQLtext + waittime + ",0," + facing + ");" + "\r\n";
                 }
             }
 
