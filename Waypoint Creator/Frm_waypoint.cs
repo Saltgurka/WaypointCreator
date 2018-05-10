@@ -364,6 +364,11 @@ namespace Frm_waypoint
 
                 if (Properties.Settings.Default.ObjectUpdate != true && (lines[i].Contains("SMSG_ON_MONSTER_MOVE") || lines[i].Contains("SMSG_MONSTER_MOVE")))
                 {
+                    sniff.guid = "";
+                    sniff.x = "";
+                    sniff.y = "";
+                    sniff.z = "";
+                    sniff.o = "";
                     string[] values = lines[i].Split(new char[] { ' ' });
                     string[] time = values[9].Split(new char[] { '.' });
                     sniff.time = time[0];
@@ -449,7 +454,7 @@ namespace Frm_waypoint
 
                     } while (lines[i] != "");
 
-                    if (sniff.entry != "")
+                    if (sniff.entry != "" && sniff.x != "")
                     {
                         DataRow dr = dt.NewRow();
                         dr[0] = sniff.entry;
@@ -584,7 +589,7 @@ namespace Frm_waypoint
                 gridWaypoint.Rows.Clear();
 
                 for (var l = 0; l < movePackets.Rows.Count; l++)
-                    gridWaypoint.Rows.Add(l + 1, movePackets.Rows[l].Field<string>(2), movePackets.Rows[l].Field<string>(3), movePackets.Rows[l].Field<string>(4), movePackets.Rows[l].Field<string>(5), movePackets.Rows[l].Field<string>(6), "");
+                    gridWaypoint.Rows.Add(l + 1, movePackets.Rows[l].Field<string>(2), movePackets.Rows[l].Field<string>(3), movePackets.Rows[l].Field<string>(4), movePackets.Rows[l].Field<string>(5), movePackets.Rows[l].Field<string>(6), movePackets.Rows[l].Field<string>(7));
         }
 
         public void GraphPath()
