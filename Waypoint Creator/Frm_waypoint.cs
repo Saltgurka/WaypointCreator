@@ -720,7 +720,7 @@ namespace Frm_waypoint
             for (var l = 0; l < gridWaypoint.RowCount; l++)
             {
                 string facing = Convert.ToString(gridWaypoint[4, l].Value);
-                if (facing == "")
+                if (facing == "" || facing == "0")
                     facing = "100";
 
                 string waittime = Convert.ToString(gridWaypoint[6, l].Value);
