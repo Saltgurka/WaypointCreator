@@ -721,7 +721,7 @@ namespace Frm_waypoint
             {
                 string facing = Convert.ToString(gridWaypoint[4, l].Value);
                 if (facing == "")
-                    facing = "0";
+                    facing = "100";
 
                 string waittime = Convert.ToString(gridWaypoint[6, l].Value);
                 if (waittime == "")
