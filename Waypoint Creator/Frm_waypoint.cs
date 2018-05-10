@@ -736,11 +736,11 @@ namespace Frm_waypoint
 
                 if (l < (gridWaypoint.RowCount - 1))
                 {
-                    SQLtext = SQLtext + waittime + ",0," + facing + ")," + "\r\n";
+                    SQLtext = SQLtext + "0,0," + facing + ")," + "\r\n";
                 }
                 else
                 {
-                    SQLtext = SQLtext + waittime + ",0," + facing + ");" + "\r\n";
+                    SQLtext = SQLtext + "0,0," + facing + ");" + "\r\n";
                 }
             }
 
